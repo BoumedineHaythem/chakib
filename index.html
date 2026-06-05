@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title data-i18n="appTitle">إدارة أسطول EV</title>
+    <link rel="manifest" href="manifest.json">
+    <link rel="stylesheet" href="style.css">
+    <meta name="theme-color" content="#0f0f1a">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+</head>
+<body class="dark-mode">
+
+    <!-- ══ CLIENT VIEW (QR Scan Page) ══ -->
+    <div id="client-view" class="hidden">
+        <span class="client-logo">⚡</span>
+        <h1 id="client-vehicle-name">جاري التحميل...</h1>
+        <p class="client-subtitle" id="client-subtitle-text">وقت التأجير المتبقي</p>
+
+        <div id="client-alert-banner" class="client-alert-box hidden">
+            <span id="client-alert-text">⚡ تبقى دقيقة واحدة!</span>
+        </div>
+
+        <div class="client-timer-ring">
+            <svg viewBox="0 0 200 200">
+                <circle class="ring-bg" cx="100" cy="100" r="88"/>
+                <circle class="ring-progress" id="client-ring-progress" cx="100" cy="100" r="88"
+                    stroke-dasharray="552.9" stroke-dashoffset="0"/>
+            </svg>
+            <div class="client-timer-center">
+                <div id="client-timer">--:--</div>
+                <div class="client-timer-label" data-i18n="timeRemaining">الوقت المتبقي</div>
+            </div>
+        </div>
+
+        <div class="client-info-row">
+            <div class="client-info-item">
+                <div class="ci-val" id="client-elapsed">00:00</div>
+                <div class="ci-lbl">الوقت المنقضي</div>
+            </div>
+            <div class="client-info-item">
+                <div class="ci-val" id="client-total-time">--:--</div>
+                <div class="ci-lbl">المدة الكلية</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══ MAIN APP ══ -->
+    <div id="app-content">
+        <header>
+            <h1 data-i18n="appTitle">⚡ إدارة أسطول EV</h1>
+            <div class="header-controls">
+                <button id="theme-toggle" title="Toggle Theme">🌙</button>
+                <button id="lang-toggle">EN</button>
+            </div>
+        </header>
+
+        <!-- Supabase connection status -->
+        <div id="supabase-status" class="status-banner offline">
+            🟡 وضع محلي — فعّل Supabase لمشاركة QR بين الأجهزة
+        </div>
+
+        <main>
+            <!-- Fleet View -->
+            <section id="fleet-view" class="view active">
+                <div class="section-header">
+                    <h2 data-i18n="availableFleet">الأسطول المتاح</h2>
+                    <div style="display:flex;gap:8px;align-items:center;">
+                        <span id="fleet-count" style="color:var(--text-secondary);font-size:0.85rem;"></span>
+                        <button id="print-qr-btn" class="btn btn-secondary btn-sm btn-icon">
+                            🖨️ طباعة QR
+                        </button>
+                    </div>
+                </div>
+                <div id="fleet-grid" class="grid"></div>
+            </section>
+
+            <!-- Rental View -->
+            <section id="rental-view" class="view hidden">
+                <div class="section-header">
+                    <h2 data-i18n="activeSession">الجلسات الحالية</h2>
+                    <span id="session-count-badge" style="color:var(--text-secondary);font-size:0.85rem;"></span>
+                </div>
+                <div id="active-rental-card"></div>
+            </section>
+
+            <!-- Logs View -->
+            <section id="logs-view" class="view hidden">
+                <div class="section-header">
+                    <h2 data-i18n="history">سجل التأجير</h2>
+                    <button id="export-csv-btn" class="btn btn-secondary btn-sm btn-icon" data-i18n="exportCSV">
+                        📥 تصدير CSV
+                    </button>
+                </div>
+                <ul id="logs-list" class="list"></ul>
+            </section>
+
+            <!-- Analytics View -->
+            <section id="analytics-view" class="view hidden">
+                <h2 data-i18n="analytics" style="margin-bottom:20px;">الإحصائيات</h2>
+
+                <div id="pin-protection" class="pin-card">
+                    <span class="lock-icon">🔐</span>
+                    <h3 data-i18n="enterPin">أدخل رمز PIN للوصول</h3>
+                    <p style="font-size:0.8rem;color:var(--text-secondary);margin-top:6px;">الرمز الافتراضي: 1234</p>
+                    <input type="password" id="pin-input" pattern="[0-9]*" inputmode="numeric" placeholder="••••">
+                    <button id="unlock-analytics-btn" class="btn btn-primary" data-i18n="unlock">🔓 فتح</button>
+                </div>
+
+                <div id="analytics-dashboard" class="hidden">
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <h3 data-i18n="totalRevenue">إجمالي الإيرادات</h3>
+                            <p id="stat-revenue">0.00 DA</p>
+                        </div>
+                        <div class="stat-card">
+                            <h3 data-i18n="mostUsed">الأكثر استخداماً</h3>
+                            <p id="stat-popular">-</p>
+                        </div>
+                        <div class="stat-card">
+                            <h3>جلسات مكتملة</h3>
+                            <p id="stat-sessions">0</p>
+                        </div>
+                        <div class="stat-card">
+                            <h3>متوسط التأجير</h3>
+                            <p id="stat-avg">0 DA</p>
+                        </div>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="revenueChart"></canvas>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <!-- Bottom Nav -->
+        <nav class="bottom-nav">
+            <button class="nav-btn active" data-target="fleet-view">
+                <span class="nav-icon">🚗</span>
+                <span class="nav-label" data-i18n="fleet">الأسطول</span>
+            </button>
+            <button class="nav-btn" data-target="rental-view">
+                <span class="nav-icon">⏱️</span>
+                <span class="nav-label" data-i18n="rental">التأجير</span>
+                <span class="nav-badge hidden" id="active-badge">0</span>
+            </button>
+            <button class="nav-btn" data-target="logs-view">
+                <span class="nav-icon">📋</span>
+                <span class="nav-label" data-i18n="history">السجل</span>
+            </button>
+            <button class="nav-btn" data-target="analytics-view">
+                <span class="nav-icon">📊</span>
+                <span class="nav-label" data-i18n="analytics">إحصائيات</span>
+            </button>
+        </nav>
+    </div>
+
+    <!-- ══ SETUP MODAL ══ -->
+    <div id="setup-modal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-drag-handle"></div>
+            <h3 id="setup-title">إعداد التأجير</h3>
+            <!-- Quick amount presets -->
+            <div class="quick-amounts">
+                <span style="font-size:0.8rem;color:var(--text-secondary);font-weight:600;">مبلغ سريع:</span>
+                <button class="quick-da-btn" data-da="100">100 DA</button>
+                <button class="quick-da-btn" data-da="200">200 DA</button>
+                <button class="quick-da-btn" data-da="300">300 DA</button>
+                <button class="quick-da-btn" data-da="500">500 DA</button>
+            </div>
+            <div class="input-group">
+                <label data-i18n="rentAmount">المبلغ (DA):</label>
+                <input type="number" id="setup-da" value="100" min="0">
+            </div>
+            <div class="input-group">
+                <label id="setup-unit-label" data-i18n="rentTime">الوقت (دقائق):</label>
+                <input type="number" id="setup-unit" value="5" min="0" step="any">
+            </div>
+            <div id="setup-qr-container" class="qr-wrap"></div>
+            <button id="confirm-rent-btn" class="btn btn-primary" data-i18n="startRental">🚀 بدء التأجير</button>
+            <button onclick="closeModal('setup-modal')" class="btn btn-secondary" data-i18n="close">إلغاء</button>
+        </div>
+    </div>
+
+    <!-- ══ QR MODAL (during session) ══ -->
+    <div id="qr-modal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-drag-handle"></div>
+            <h3 id="qr-modal-title">📱 امسح الكود لمتابعة الوقت</h3>
+            <div id="active-qr-container" class="qr-wrap"></div>
+            <p id="qr-time-remaining" style="color:var(--accent);font-weight:700;font-size:0.85rem;margin:8px 0;word-break:break-all;"></p>
+            <button onclick="closeModal('qr-modal')" class="btn btn-secondary" data-i18n="close">إغلاق</button>
+        </div>
+    </div>
+
+    <!-- ══ EXTEND SESSION MODAL ══ -->
+    <div id="extend-modal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-drag-handle"></div>
+            <h3>⏱ تمديد الجلسة</h3>
+            <p style="color:var(--text-secondary);font-size:0.85rem;margin-bottom:16px;">اختر مدة التمديد:</p>
+            <div class="extend-grid">
+                <button class="extend-btn btn btn-secondary" data-min="5">+5 دقائق</button>
+                <button class="extend-btn btn btn-secondary" data-min="10">+10 دقائق</button>
+                <button class="extend-btn btn btn-secondary" data-min="15">+15 دقائق</button>
+                <button class="extend-btn btn btn-secondary" data-min="30">+30 دقائق</button>
+            </div>
+            <button onclick="closeModal('extend-modal')" class="btn btn-secondary" style="margin-top:12px;">إلغاء</button>
+        </div>
+    </div>
+
+    <!-- ══ SESSION SUMMARY MODAL ══ -->
+    <div id="summary-modal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-drag-handle"></div>
+            <h3>✅ انتهت الجلسة</h3>
+            <div class="summary-big" id="summary-amount">0 DA</div>
+            <div id="summary-rows"></div>
+            <button onclick="closeModal('summary-modal')" class="btn btn-primary">تم</button>
+        </div>
+    </div>
+
+    <!-- ══ PRINT QR LABELS MODAL ══ -->
+    <div id="print-qr-modal" class="modal hidden" id="print-qr-modal">
+        <div class="modal-content modal-content-wide">
+            <div class="modal-drag-handle"></div>
+            <h3>🖨️ طباعة بطاقات QR</h3>
+            <p style="color:var(--text-secondary);font-size:0.82rem;margin-bottom:16px;">
+                اطبع هذه البطاقات، قصّها، ولصقها على كل مركبة.<br>
+                عندما يمسح العميل الكود سيرى الوقت المتبقي تلقائياً.
+            </p>
+            <div id="print-qr-grid" class="qr-labels-grid"></div>
+            <div style="display:flex;gap:10px;margin-top:16px;">
+                <button onclick="printQRLabels()" class="btn btn-primary btn-icon">🖨️ طباعة</button>
+                <button onclick="closeModal('print-qr-modal')" class="btn btn-secondary">إغلاق</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('service-worker.js')
+                .then(reg => reg.unregister()).catch(() => {});
+        }
+    </script>
+    <script src="data.js"></script>
+    <script src="supabase-config.js"></script>
+    <script src="storage.js"></script>
+    <script src="analytics.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
