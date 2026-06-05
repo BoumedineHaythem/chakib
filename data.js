@@ -1,9 +1,9 @@
 const initialFleet = [
     { id: 'v1', name: 'Pro2 bleu', type: 'scooter', rate: 100, unit: 5, billingType: 'timer', img: 'images/scooter1.jpg', status: 'available', color: '#007bff' },
     { id: 'v2', name: 'M365 srira', type: 'scooter', rate: 100, unit: 5, billingType: 'timer', img: 'images/scotore2.jpg', status: 'available', color: '#dc3545' },
-    { id: 'v3', name: 'Kuiok wheel', type: 'scooter', rate: 100, unit: 5, billingType: 'timer', img: 'images/scooter3.jpg', status: 'available', color: '#845019' },
-    { id: 'v4', name: 'ninbut g30 max', type: 'scooter', rate: 100, unit: 5, billingType: 'timer', img: 'images/scooter4.jpg', status: 'available', color: '#dc35b5' },
-    { id: 'v5', name: 'pro2 chakib', type: 'scooter', rate: 100, unit: 5, billingType: 'timer', img: 'images/scooter5.jpg', status: 'available', color: '#28a745' },
+    { id: 'v3', name: 'Kuiok wheel', type: 'scooter', rate: 100, unit: 5, billingType: 'timer', img: 'images/scooter3.jpg', status: 'available', color: '#fff200' },
+    { id: 'v4', name: 'ninbut g30 max', type: 'scooter', rate: 100, unit: 5, billingType: 'timer', img: 'images/scooter4.jpg', status: 'available', color: '#ffffff' },
+    { id: 'v5', name: 'pro2 chakib', type: 'scooter', rate: 100, unit: 5, billingType: 'timer', img: 'images/scooter5.jpg', status: 'available', color: '#000000' },
 ];
 
 const translations = {
